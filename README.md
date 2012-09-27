@@ -1,4 +1,6 @@
 eephpchs
 ========
 
-Extending and Embedding PHP zh_CN Translation
+Extending and Embedding PHP chs Translation
+
+compiled html view url : http://docs.suchasplus.com/eephp/

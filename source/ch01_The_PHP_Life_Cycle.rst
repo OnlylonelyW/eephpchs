@@ -2,18 +2,14 @@
 第一章: PHP生命周期
 ===================
 
-.. highlight:: php
-.. IN A COMMON WEB SERVER ENVIRONMENT, YOU'LL NEVER explicitly start the PHP interpreter; you'll start Apache or some other web server that will load PHP and process scripts as neededthat is, as .php documents are requested.
+.. highlight:: c++
 
 在常见的web服务器环境中, 你从来不会显式的启动PHP解释器; 你将会启动Apache或者其他web服务器来加载PHP并且来解析PHP脚本
 
-.. It All Starts with the SAPI
-.. ===========================
 
 一切从SAPI开始
 ==============
 
-.. Though it may look very different, the CLI binary actually behaves just the same way. A php command, entered at the system prompt starts up the "command line sapi," which acts like a miniweb server designed to service a single request. When the script is done running, this miniPHP-web server shuts down and returns control to the shell.
 
 尽管看起来很不一样, 但是PHP的CLI模式实际上(与常见的web服务器中)没有差别. 在命令提示符下的敲了一条PHP命令, 实际上启动了command line sapi, 等同于一个专门为单次请求服务的小型web服务器. 当脚本运行结束的时候, 这个小服务器会关掉并且把控制权还给shell.
 
@@ -21,16 +17,12 @@
 启动和关闭
 ==========
 
-.. This startup and shutdown process happens in two separate startup phases and two separate shutdown phases. One cycle is for the PHP interpreter as a whole to perform an initial setup of structures and values that will persist for the life of the SAPI. The second is for transient settings that only last as long as a single page request.
-
-.. During the initial startup, before any request has been made, PHP calls every extension's MINIT (Module Initialization) method. Here, extensions are expected to declare constants, define classes, and register resource, stream, and filter handlers that all future script requests will use. Features such as these, which are designed to exist across all requests, are referred to as being persistent.
 
 PHP的启动可以看做是两个不同的时期组成, 关闭也是. 第一个是PHP解释器整体的启动来初始化数据结构和各种值, 这些值和数据结构会贯穿SAPI的整个生命周期. 第二个是每当一个请求过来, 只针对于当前请求的设定/值.
 
 在PHP解释器的初始过程中, 在接受请求之前, PHP会调用每个扩展的\ **MINIT** (模块初始化 *Module Initialization*)方法. 在这里, 扩展会约定俗成的定义常量和类, 注册资源和流, 并且filter handlers that all future script requests will use. 设计的这些功能将会贯穿于所有请求, 即在PHP解释器生命周期内持久化.
 
 
-.. highlight:: c++
 
 一个常见\ **MINIT**\ 方法的例子\ ::
 
@@ -388,8 +380,105 @@ TSRM会记住资源申请量并且返回一个新的、独一无二的标示符�
 
 通常情况下PHP的构建为非线程安全， 而只有在SAPI需要(线程安全)或者configure的时候显式指明的时候才会启用线程安全。
 
-基于速度和进程隔离的考虑， 你可能会觉得为毛有人会故意启用线程安全， 毕竟根本不需要TSRM。
+基于速度和进程隔离的考虑， 你可能会觉得为毛有人会故意启用线程安全， 毕竟根本不需要TSRM。实际上， 绝大多数情况下， 线扩展的线程安全可以保证线程在所有环境下都能正常运行。
 
-绝大多数情况下， 线程安全的扩展可以保证运行在所有环境下。
+当启用线程安全时， 很多内部函数的原型会加上一个叫做\ **tsrm_ls**\ 的特殊指针。 这个指针允许PHP区分数据到底属于哪个线程。在前面的代码中这玩意被用在线程安全的\ ``SAMPLE_G()``\ 宏之中。 没有它(tsrm_ls), 一个运行中的函数无法得知应该去查看哪个符号表和写入值，甚至唔知道哪个脚本正在被运行， 而且PHP引擎本身也完全无法跟踪内部寄存器。这个指针保证着线程正常运行。
 
-当启用线程安全时， 很多内部函数会加上一个叫做\ **tsrm_ls**\ 的特殊指针。 这个指针允许PHP区分数据到底属于哪个线程。在前面的代码中这玩意被用在线程安全的\ ``SAMPLE_G()``\ 宏之中。
+这个指针参数通过一组定义来选择性的被包含在原型中。当ZTS被关闭的时候， 这些定义都为空， 反之则看起来像这样\ ::
+
+    #define TSRMLS_D     void ***tsrm_ls
+    #define TSRMLS_DC     , void ***tsrm_ls
+    #define TSRMLS_C     tsrm_ls
+    #define TSRMLS_CC     , tsrm_ls
+
+下面的代码中, 一个非线程安全的构建看起来只有两个参数: \ ``int``\ 和\ ``char*``\ ; 而线程安全的时候, 这个原型有三个参数: \ ``int``\ , ``char*``\ 和\ ``void***``\ , 当你调用这个函数的时候, 必须传递第三个参数. 第二行代码显示了调用时的情况. ::
+
+    int php_myext_action(int action_id, char *message TSRMLS_DC);
+    php_myext_action(42, "The meaning of life" TSRMLS_CC);
+
+
+通过在函数调用中引用这个特殊变量, \ **php_myext_action**\ 可以通过名叫的\ ``MYEXT_G``\ 的宏来结合\ ``tsrm_ls``\ 访问线程所需的全局数据. 
+在非线程安全的构建中, \ ``tsrm_ls``\ 是不可用的, 但是因为\ ``MYEXT_G()``\ 或者其他宏的存在, 不会直接调用\ ``tsrm_ls``\ .
+
+想象一下你新建了一个扩展并且以下的函数可以完美的运行在你本地环境(使用apache 1.x的  APXS SAPI)中\ ::
+
+    static int php_myext_isset(char *varname, int varname_len)
+    {
+        zval **dummy;
+
+
+        if (zend_hash_find(EG(active_symbol_table),
+            varname, varname_len + 1,
+            (void**)&dummy) == SUCCESS) {
+            /* Variable exists */
+            return 1;
+        } else {
+            /* Undefined variable */
+            return 0;
+        }
+    }
+
+
+ok, 打包然后把你的扩展发给QA. 不幸的是, QA说你的扩展根本编译不过去, 因为他们使用的是Apache 2.x 还开了多线程模式. 因为编译器发现你试用了\ ``EG()``\ 时, 会尝试在当前作用域内寻找\ ``tsrm_ls``\ , 但是明显会找不到, 因为根本没把\ ``tsrm_ls``\ 传进去.
+
+解决办法很简单: 在\ ``php_myext_isset()``\ 中定义\ ``TSRMLS_DC``\ 并且每次调用的时候都加上\ ``TSRMLS_CC``\ . 不幸的是, 产品组的人对你的代码质量产生了怀疑. 如果仅仅是这个问题, 你明明可以早点解决的.
+
+所以, 这就是为什么需要\ **enable-maintainer-zts**\ 选项. 在执行./configure的时候加上价格, 编译的时候会自动启用ZTS, 哪怕你根本不需要它(比如CLI). 启用这个选项, 你可以避免常见和不必要的编程错误.
+
+注意
+----
+    \ 在PHP4里面, 还不支持enable-maintainer-zts, 要用enable-experimental-zts.
+
+
+
+
+-----------------
+找到丢失的tsrm_ls
+-----------------
+
+有时候一个函数需要\ ``tsrm_ls``\ 却没法传进去. 一般来说是你的扩展实现了一个使用回调函数的库的接口而没有地方去返回一个抽象指针. 考虑下面的代码:\ ::
+
+    void php_myext_event_callback(int eventtype, char *message)
+    {
+        zval *event;
+
+
+        /* $event = array('event'=>$eventtype,
+                        'message'=>$message) */
+        MAKE_STD_ZVAL(event);
+        array_init(event);
+        add_assoc_long(event, "type", eventtype);
+        add_assoc_string(event, "message", message, 1);
+
+
+        /* $eventlog[] = $event; */
+        add_next_index_zval(EXT_G(eventlog), event);
+    }
+    PHP_FUNCTION(myext_startloop)
+    {
+        /* The eventlib_loopme() function,
+         * exported by an external library,
+         * waits for an event to happen,
+         * then dispatches it to the
+         * callback handler specified.
+         */
+        eventlib_loopme(php_myext_event_callback);
+    }
+
+
+尽管这段代码看起来不是那么合理, 但是你依然能注意到回调函数用到了\ **EXT_G()**\ 宏, 线程安全的构建下需要\ ``tsrm_ls``\ 指针.  改变函数原型不是一个好主意, 因为外部库对PHP线程模型没有概念, 也不需要了解. 那么怎样才能使用\ ``tsrm_ls``\ 呢?
+
+解决办法是一个叫做\ **TSRM_FETCH()**\ 的Zend宏(*zend macro*). 当被放在代码头部的时候, 这个宏将会执行一个基于当前线程的查询操作, 并且定义一个\ ``tsrm_ls``\ 指针的本地复制.
+
+
+尽管将会被到处使用并且不会因为需要在函数调用中传递\ ``tsrm_ls``\ 而烦恼, 需要注意的是\ ``TSRMLS_FETCH()`` \ 会消耗很多时间来处理. 一次循环可能不明显, 但是随着线程数和调用次数的增加, \ ``TSRMLS_FETCH()``\ 会成为扩展的性能瓶颈. 小心使用哦~
+
+注意
+----
+
+    \ 为了保证与C++编译器的兼容性, 请确保\ ``TSRMLS_FETCH()``\ 和所有变量声明都写在代码块最开始的地方. 因为\ ``TSRMLS_FETCH()``\ 宏可以有几种解决方式, 所以最好的方式是把它放在定义区域的最后.
+
+小结
+====
+
+本章中你看到的几个概念, 都将在后面详述. 本章讲述了扩展的基础, 包含了Zend引擎和TSRM层.

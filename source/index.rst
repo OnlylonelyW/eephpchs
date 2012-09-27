@@ -8,6 +8,8 @@ Extending and Embedding PHP zh_CN
 
 Extending and Embedding PHP 中文翻译
 
+开始于2012 09 24
+
 Powered by renwenyue@baidu.com ( aka suchasplus@gmail.com)
 
 目录
