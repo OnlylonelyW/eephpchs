@@ -54,4 +54,4 @@ Zend目前(2006年)定义了8种数据类型, 如下表所示:
      
       Note that the amount of memory allocated for a given PHP string is always, at minimum, its length plus one. This last byte is populated with a terminating NULL character so that functions that do not require binary safety can simply pass the string pointer through to their underlying method.
        "
-    "IS_STRING", ""
+    "IS_SsTRING", "PHP最通用的数据类型就是字符串(string), 一个有经验的C程序员应该能猜出来string是怎么存的: 开一块能放下所有字符的内存, 然后在\ *ZVAL*\ 存一个指向这个内存的指针. 值得注意的是, \ *ZVAL*\ 中始终显式的保存了string的长度. 这个设计使得PHP能保存二进制数据! "
