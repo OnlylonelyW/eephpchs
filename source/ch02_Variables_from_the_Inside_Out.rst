@@ -45,13 +45,20 @@ Zend目前(2006年)定义了8种数据类型, 如下表所示:
     :header: "类型", "存在目的"
     :widths: 15, 1000
     
-    "IS_NULL", "这个类型是声明之后自动赋给未初始化的变量, 并且可以显式的指定为系统内置常量NULL. 这个值意味着非常独特的'没有值', 跟布尔值\ **FALSE**\ 和整型\ **0**\ 都不一样"
-    "IS_BOOL", "布尔变量只能是\ **TRUE**\ 或者\ **FALSE**\ . 用户态的条件表达式结构(**if**, **while**, **ternary**, **for**)在执行的时候总是隐式的将判断结果转换为布尔类型"
-    "IS_LONG", "PHP整型的数据类型用当前系统有符号长整形来存储. 在大多数32位平台上取值范围是 ``-2147483648`` 到 ``+2147483647``, 少数情况下, 当一个用户脚本尝试保存一个超出此范围的数值, 系统会自动转换为double类型(双精度类型 **IS_DOUBLE**)"
-    "IS_DOUBLE", "浮点类型的数据类型使用当前系统的有符号双精度类型(signed double). 而众所周知的是计算机无法精准的表达浮点数, 取而代之的是用科学计数法来保存某个精度的浮点数. 1/3然后*3的结果是0.9999999..., 并不等于1.(这些限制存在于常见的32位系统, 系统和系统间有个体差异)"
-    "IS_STRING", "PHP's most universal data type is the string which is stored in just the way an experienced C programmer would expect. A block of memory, sufficiently large to hold all the bytes/characters of the string, is allocated and a pointer to that string is stored in the host zval.
-    What's worth noting about PHP strings is that the length of the string is always explicitly stated in the zval structure. This allows strings to contain NULL bytes without being truncated. This aspect of PHP strings will be referred to hereafter as binary safety because it makes them safe to contain any type of binary data.
-     
-      Note that the amount of memory allocated for a given PHP string is always, at minimum, its length plus one. This last byte is populated with a terminating NULL character so that functions that do not require binary safety can simply pass the string pointer through to their underlying method.
-       "
-    "IS_SsTRING", "PHP最通用的数据类型就是字符串(string), 一个有经验的C程序员应该能猜出来string是怎么存的: 开一块能放下所有字符的内存, 然后在\ *ZVAL*\ 存一个指向这个内存的指针. 值得注意的是, \ *ZVAL*\ 中始终显式的保存了string的长度. 这个设计使得PHP能保存二进制数据! "
+    "IS_NULL", "这个类型是声明之后自动赋给未初始化的变量, 并且可以显式的指定为系统内置常量NULL. 
+    这个值意味着非常独特的'没有值', 跟布尔值\ **FALSE**\ 和整型\ **0**\ 都不一样"
+    "IS_BOOL", "布尔变量只能是\ **TRUE**\ 或者\ **FALSE**\ . 
+    用户态的条件表达式结构(**if**, **while**, **ternary**, **for**)在执行的时候总是隐式的将判断结果转换为布尔类型"
+    "IS_LONG", "PHP整型的数据类型用当前系统有符号长整形来存储. 
+    在大多数32位平台上取值范围是 ``-2147483648`` 到 ``+2147483647``, 
+    少数情况下, 当一个用户脚本尝试保存一个超出此范围的数值, 
+    系统会自动转换为double类型(双精度类型 **IS_DOUBLE**)"
+    "IS_DOUBLE", "浮点类型的数据类型使用当前系统的有符号双精度类型(signed double). 
+    而众所周知的是计算机无法精准的表达浮点数, 取而代之的是用科学计数法来保存某个精度的浮点数. 
+    1/3然后*3的结果是0.9999999..., 并不等于1.(这些限制存在于常见的32位系统, 系统和系统间有个体差异)"
+    "IS_STRING", "PHP最通用的数据类型就是字符串(string), 一个有经验的C程序员应该能猜出来string是怎么存的: 开一块能放下所有字符的内存, 然后在\ *ZVAL*\ 存一个指向这个内存的指针. 值得注意的是, \ *ZVAL*\ 中始终显式的保存了string的长度. 这个设计使得PHP能保存任意类型的二进制数据! 
+    值得注意的是这块内存的最后是NULL字符, 所以不需要二进制安全也可以直接使用指针"
+    "IS_ARRAY", "作为一个特殊用途的变量, 数组可以携带其他变量. 不像C风格的数组, PHP的数组不是一个单一类型数据的组合(比如\ *zval*\   *arrayofzvals[]*\ ), 而是一堆复合数据连接到一个结构体, 即常说的\ *HashTable*\ . 每个\ *HashTable*\ 元素(bucket)包含两个相关的信息: 标签(label)和数据(data). 
+    对于PHP数组来说, 标签(label)是数组中的key或下标, 数据(data)是相对应的zval"
+    "IS_OBJECT", "对象能存储数据并且可以有接口, 访问权限控制, 魔术方法和特殊的事件处理等等, PHP4和PHP5的内部对象模型差别很大. "
+    "IS_RESOURCE", "有的数据类型没法映射到用户空间. 比如stdio的FILE指针或者libmysqlclient的连接handler没法简单的映射用一个数组的值来表示, 就算能表达也看起来不合理. 为了使用户不必处理这些底层细节, PHP提供了一个通用的资源数据类型(generic resource data type). 具体的实现细节将在第九章中详述, 现在只需要知道这玩意存在就可以了..."
